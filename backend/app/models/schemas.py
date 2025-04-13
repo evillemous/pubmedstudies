@@ -1,4 +1,4 @@
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, Dict, Any
 from pydantic import BaseModel, Field
 
 
@@ -46,6 +46,23 @@ class ManuscriptSection(BaseModel):
     content: str
 
 
+class TableData(BaseModel):
+    """Schema for a table in a manuscript."""
+    id: str = Field(..., description="Unique identifier for the table")
+    title: str = Field(..., description="Title of the table")
+    caption: str = Field(..., description="Caption or description of the table")
+    headers: List[str] = Field(..., description="Column headers")
+    rows: List[List[str]] = Field(..., description="Table data as rows of string values")
+
+class FigureData(BaseModel):
+    """Schema for a figure in a manuscript."""
+    id: str = Field(..., description="Unique identifier for the figure")
+    title: str = Field(..., description="Title of the figure")
+    caption: str = Field(..., description="Caption or description of the figure")
+    type: Literal["chart", "image", "diagram"] = Field(..., description="Type of figure")
+    subtype: Optional[str] = Field(None, description="Subtype of figure (bar, line, etc.)")
+    data: Dict[str, Any] = Field(..., description="Figure data (format depends on type)")
+
 class Manuscript(BaseModel):
     """Schema for the complete manuscript."""
     title: str
@@ -56,6 +73,8 @@ class Manuscript(BaseModel):
     discussion: ManuscriptSection
     references: List[str]
     word_count: int
+    figures: Optional[List[FigureData]] = None
+    tables: Optional[List[TableData]] = None
     
 class GenerateManuscriptRequest(BaseModel):
     """Request to generate a manuscript."""
@@ -67,3 +86,15 @@ class ExportRequest(BaseModel):
     """Request to export a manuscript."""
     manuscript: Manuscript
     format: Literal["docx", "pdf", "markdown"]
+
+class AIInteractionRequest(BaseModel):
+    """Request for AI interaction with a manuscript."""
+    manuscript: Manuscript
+    user_command: str = Field(..., description="Natural language command to modify or query the manuscript")
+    research_context: Optional[ResearchRequest] = Field(None, description="Original research request for context")
+    
+class AIInteractionResponse(BaseModel):
+    """Response from AI interaction with a manuscript."""
+    updated_manuscript: Manuscript
+    explanation: str = Field(..., description="Explanation of changes made to the manuscript")
+    success: bool = Field(..., description="Whether the interaction was successful")

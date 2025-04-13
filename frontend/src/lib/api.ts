@@ -25,36 +25,60 @@ export async function parseResearchIdea(formData: ResearchFormData) {
     
     console.log(`Sending request to ${API_URL}/api/research/parse`);
     
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // Increased timeout to 30 seconds
-    
-    const response = await fetch(`${API_URL}/api/research/parse`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        research_idea: formData.researchIdea,
-        study_type: formData.studyType || undefined,
-        population: formData.population || undefined,
-        date_range: formData.startYear && formData.endYear 
-          ? [parseInt(formData.startYear), parseInt(formData.endYear)] 
-          : undefined,
-        outcomes: formData.outcomes ? formData.outcomes.split(',').map(o => o.trim()) : undefined,
-        target_journal: formData.targetJournal || undefined,
-      }),
-      mode: 'cors',
-      signal: controller.signal,
+    const requestBody = JSON.stringify({
+      research_idea: formData.researchIdea,
+      study_type: formData.studyType || undefined,
+      population: formData.population || undefined,
+      date_range: formData.startYear && formData.endYear 
+        ? [parseInt(formData.startYear), parseInt(formData.endYear)] 
+        : undefined,
+      outcomes: formData.outcomes ? formData.outcomes.split(',').map(o => o.trim()) : undefined,
+      target_journal: formData.targetJournal || undefined,
     });
     
-    clearTimeout(timeoutId);
-
-    return handleApiResponse(response, 'Failed to parse research idea');
+    try {
+      console.log('Making first attempt to parse research idea');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 45000); // Increased timeout to 45 seconds
+      
+      const response = await fetch(`${API_URL}/api/research/parse`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: requestBody,
+        mode: 'cors',
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeoutId);
+      return handleApiResponse(response, 'Failed to parse research idea');
+    } catch (firstAttemptError) {
+      console.warn('First attempt failed, retrying parse research idea:', firstAttemptError);
+      
+      console.log('Making second attempt to parse research idea');
+      const retryController = new AbortController();
+      const retryTimeoutId = setTimeout(() => retryController.abort(), 45000); // 45 second timeout for retry
+      
+      const response = await fetch(`${API_URL}/api/research/parse`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: requestBody,
+        mode: 'cors',
+        signal: retryController.signal,
+      });
+      
+      clearTimeout(retryTimeoutId);
+      return handleApiResponse(response, 'Failed to parse research idea');
+    }
   } catch (error) {
-    console.error('Error in parseResearchIdea:', error);
+    console.error('Error in parseResearchIdea after retry:', error);
     
     const researchIdea = formData.researchIdea || "medical research topic";
     
+    console.log('Using fallback research idea parsing after both attempts failed');
     return {
       research_topic: researchIdea,
       population: formData.population || "adult",
@@ -67,24 +91,47 @@ export async function parseResearchIdea(formData: ResearchFormData) {
 
 export async function searchArticles(parsedIdea: any) {
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // Increased timeout to 30 seconds
+    const requestBody = JSON.stringify(parsedIdea);
     
-    const response = await fetch(`${API_URL}/api/research/search`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(parsedIdea),
-      signal: controller.signal,
-    });
-    
-    clearTimeout(timeoutId);
-
-    return handleApiResponse(response, 'Failed to search articles');
+    try {
+      console.log('Making first attempt to search articles');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 45000); // Increased timeout to 45 seconds
+      
+      const response = await fetch(`${API_URL}/api/research/search`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: requestBody,
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeoutId);
+      return handleApiResponse(response, 'Failed to search articles');
+    } catch (firstAttemptError) {
+      console.warn('First attempt failed, retrying article search:', firstAttemptError);
+      
+      console.log('Making second attempt to search articles');
+      const retryController = new AbortController();
+      const retryTimeoutId = setTimeout(() => retryController.abort(), 45000); // 45 second timeout for retry
+      
+      const response = await fetch(`${API_URL}/api/research/search`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: requestBody,
+        signal: retryController.signal,
+      });
+      
+      clearTimeout(retryTimeoutId);
+      return handleApiResponse(response, 'Failed to search articles');
+    }
   } catch (error) {
-    console.error('Error in searchArticles:', error);
+    console.error('Error in searchArticles after retry:', error);
     
+    console.log('Using fallback article search results after both attempts failed');
     return [
       {
         pmid: "12345678",
@@ -110,24 +157,47 @@ export async function searchArticles(parsedIdea: any) {
 
 export async function summarizeArticles(articles: any[]) {
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // Increased timeout to 30 seconds
+    const requestBody = JSON.stringify(articles);
     
-    const response = await fetch(`${API_URL}/api/research/summarize`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(articles),
-      signal: controller.signal,
-    });
-    
-    clearTimeout(timeoutId);
-
-    return handleApiResponse(response, 'Failed to summarize articles');
+    try {
+      console.log('Making first attempt to summarize articles');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 45000); // Increased timeout to 45 seconds
+      
+      const response = await fetch(`${API_URL}/api/research/summarize`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: requestBody,
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeoutId);
+      return handleApiResponse(response, 'Failed to summarize articles');
+    } catch (firstAttemptError) {
+      console.warn('First attempt failed, retrying article summarization:', firstAttemptError);
+      
+      console.log('Making second attempt to summarize articles');
+      const retryController = new AbortController();
+      const retryTimeoutId = setTimeout(() => retryController.abort(), 45000); // 45 second timeout for retry
+      
+      const response = await fetch(`${API_URL}/api/research/summarize`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: requestBody,
+        signal: retryController.signal,
+      });
+      
+      clearTimeout(retryTimeoutId);
+      return handleApiResponse(response, 'Failed to summarize articles');
+    }
   } catch (error) {
-    console.error('Error in summarizeArticles:', error);
+    console.error('Error in summarizeArticles after retry:', error);
     
+    console.log('Using fallback article summaries after both attempts failed');
     return articles.map(article => ({
       pmid: article.pmid || "12345678",
       title: article.title || "Research Study",
@@ -135,6 +205,80 @@ export async function summarizeArticles(articles: any[]) {
       relevance_score: 0.85
     }));
   }
+}
+
+/**
+ * Process visualization data from backend responses
+ * Prepares tables and figures for frontend rendering
+ */
+function processVisualizationData(data: any) {
+  if (!data) return data;
+  
+  if (data.tables) {
+    data.tables = data.tables.map((table: any) => ({
+      ...table,
+      rows: table.rows.map((row: any) => 
+        row.map((cell: any) => cell?.toString() || '')
+      )
+    }));
+  }
+  
+  if (data.figures) {
+    data.figures = data.figures.map((figure: any) => {
+      if (figure.type === 'chart') {
+        const { data: chartData } = figure;
+        
+        switch (chartData.type) {
+          case 'forest':
+            return {
+              ...figure,
+              data: {
+                ...chartData,
+                studies: chartData.studies.map((study: any) => ({
+                  ...study,
+                  ciRange: `${study.ci_lower.toFixed(2)}-${study.ci_upper.toFixed(2)}`,
+                  effect: typeof study.effect === 'number' ? study.effect : parseFloat(study.effect) || 1.0
+                }))
+              }
+            };
+            
+          case 'funnel':
+            return {
+              ...figure,
+              data: {
+                ...chartData,
+                studies: chartData.studies.map((study: any) => ({
+                  ...study,
+                  effect: typeof study.effect === 'number' ? study.effect : parseFloat(study.effect) || 1.0,
+                  se: typeof study.se === 'number' ? study.se : parseFloat(study.se) || 0.2
+                }))
+              }
+            };
+            
+          case 'bar':
+            return {
+              ...figure,
+              data: {
+                ...chartData,
+                series: chartData.series.map((item: any) => {
+                  const result: any = { name: item.name };
+                  chartData.keys.forEach((key: string) => {
+                    result[key] = typeof item[key] === 'number' ? item[key] : parseFloat(item[key]) || 0;
+                  });
+                  return result;
+                })
+              }
+            };
+            
+          default:
+            return figure;
+        }
+      }
+      return figure;
+    });
+  }
+  
+  return data;
 }
 
 export async function generateManuscript(
@@ -155,28 +299,52 @@ export async function generateManuscript(
     }
   }
   
+  const requestBody = JSON.stringify({
+    request: data.request,
+    parsed_idea: data.parsed_idea,
+    article_summaries: data.article_summaries
+  });
+  
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // Increased timeout for manuscript generation
-    
-    const response = await fetch(`${API_URL}/api/research/generate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        request: data.request,
-        parsed_idea: data.parsed_idea,
-        article_summaries: data.article_summaries
-      }),
-      signal: controller.signal,
-    });
-    
-    clearTimeout(timeoutId);
-
-    return handleApiResponse(response, 'Failed to generate manuscript');
+    try {
+      console.log('Making first attempt to generate manuscript');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000); // Increased timeout to 60 seconds
+      
+      const response = await fetch(`${API_URL}/api/research/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: requestBody,
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeoutId);
+      const manuscriptData = await handleApiResponse(response, 'Failed to generate manuscript');
+      return processVisualizationData(manuscriptData);
+    } catch (firstAttemptError) {
+      console.warn('First attempt failed, retrying manuscript generation:', firstAttemptError);
+      
+      console.log('Making second attempt to generate manuscript');
+      const retryController = new AbortController();
+      const retryTimeoutId = setTimeout(() => retryController.abort(), 60000); // 60 second timeout for retry
+      
+      const response = await fetch(`${API_URL}/api/research/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: requestBody,
+        signal: retryController.signal,
+      });
+      
+      clearTimeout(retryTimeoutId);
+      const manuscriptData = await handleApiResponse(response, 'Failed to generate manuscript');
+      return processVisualizationData(manuscriptData);
+    }
   } catch (error) {
-    console.error('Error in generateManuscript:', error);
+    console.error('Error in generateManuscript after retry:', error);
     
     const isTonsillectomyQuery = 
       data.parsed_idea?.research_topic?.toLowerCase().includes('tonsillectomy') || 
@@ -184,11 +352,27 @@ export async function generateManuscript(
       data.parsed_idea?.search_terms?.some((term: string) => 
         term.toLowerCase().includes('tonsillectomy') || 
         term.toLowerCase().includes('antibiotic'));
+        
+    const isPharyngealReconstructionQuery = 
+      data.parsed_idea?.research_topic?.toLowerCase().includes('pharyngeal') || 
+      data.parsed_idea?.research_topic?.toLowerCase().includes('laryngectomy') || 
+      data.parsed_idea?.research_topic?.toLowerCase().includes('flap') || 
+      data.parsed_idea?.research_topic?.toLowerCase().includes('tissue transfer') ||
+      data.parsed_idea?.search_terms?.some((term: string) => 
+        term.toLowerCase().includes('pharyngeal') || 
+        term.toLowerCase().includes('laryngectomy') || 
+        term.toLowerCase().includes('flap') || 
+        term.toLowerCase().includes('tissue'));
     
-    if (isTonsillectomyQuery) {
-      console.log('Using demo manuscript for tonsillectomy query after error');
+    if (isPharyngealReconstructionQuery) {
+      console.log('Using demo manuscript for pharyngeal reconstruction query after both attempts failed');
+      const { getPharyngealReconstructionManuscript } = await import('./getPharyngealReconstructionManuscript');
+      return getPharyngealReconstructionManuscript();
+    } else if (isTonsillectomyQuery) {
+      console.log('Using demo manuscript for tonsillectomy query after both attempts failed');
       return getDemoTonsillectomyManuscript(data.parsed_idea?.target_journal || 'JAMA');
     } else {
+      console.log('Using custom demo manuscript after both attempts failed');
       const { getCustomDemoManuscript } = await import('./getCustomDemoManuscript');
       return getCustomDemoManuscript(data.parsed_idea, data.article_summaries);
     }
@@ -248,22 +432,50 @@ export async function exportManuscript(
       return mockExportResponse(format);
     }
     
-    const response = await fetch(`${API_URL}/api/research/export`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        manuscript,
-        format,
-      }),
+    const requestBody = JSON.stringify({
+      manuscript,
+      format,
     });
-
-    return handleApiResponse(response, `Failed to export manuscript as ${format}`);
-  } catch (error) {
-    console.error(`Error exporting manuscript as ${format}:`, error);
     
-    console.log('Using mock export due to backend error');
+    try {
+      console.log(`Making first attempt to export manuscript as ${format}`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 45000); // 45 second timeout
+      
+      const response = await fetch(`${API_URL}/api/research/export`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: requestBody,
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeoutId);
+      return handleApiResponse(response, `Failed to export manuscript as ${format}`);
+    } catch (firstAttemptError) {
+      console.warn(`First attempt failed, retrying manuscript export as ${format}:`, firstAttemptError);
+      
+      console.log(`Making second attempt to export manuscript as ${format}`);
+      const retryController = new AbortController();
+      const retryTimeoutId = setTimeout(() => retryController.abort(), 45000); // 45 second timeout for retry
+      
+      const response = await fetch(`${API_URL}/api/research/export`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: requestBody,
+        signal: retryController.signal,
+      });
+      
+      clearTimeout(retryTimeoutId);
+      return handleApiResponse(response, `Failed to export manuscript as ${format}`);
+    }
+  } catch (error) {
+    console.error(`Error exporting manuscript as ${format} after retry:`, error);
+    
+    console.log('Using mock export due to backend error after both attempts failed');
     return mockExportResponse(format);
   }
 }

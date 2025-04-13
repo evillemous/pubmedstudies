@@ -117,6 +117,85 @@ Future research should focus on identifying which specific components of interve
                    discussionContent.split(' ').length + 
                    references.length * 15; // Approximate words per reference
 
+  const sampleTables = [
+    {
+      id: "table_study_characteristics",
+      title: "Characteristics of Included Studies",
+      caption: "Summary of studies included in the meta-analysis",
+      headers: ["Study", "Year", "Sample Size", "Population", "Key Findings"],
+      rows: [
+        ["Smith et al.", "2019", "120", "Pediatric", "Reduced infection rate by 45%"],
+        ["Johnson et al.", "2020", "85", "Pediatric", "No significant difference in outcomes"],
+        ["Williams et al.", "2018", "132", "Pediatric", "Shorter hospital stay (p<0.01)"],
+        ["Thompson et al.", "2021", "94", "Pediatric", "Reduced recurrence rate by 30%"]
+      ]
+    },
+    {
+      id: "table_outcome_summary",
+      title: "Summary of Primary Outcomes",
+      caption: "Comparison of key outcomes between intervention and control groups",
+      headers: ["Outcome", "Intervention Group", "Control Group", "Effect Size (95% CI)", "P Value"],
+      rows: [
+        ["Efficacy", "68.4%", "83.6%", "RR 0.68 (0.51-0.92)", "0.01"],
+        ["Quality of Life", "75.2 points", "62.8 points", "SMD -0.39 (-0.61 to -0.18)", "0.003"],
+        ["Adverse Events", "12.3%", "13.1%", "RR 0.94 (0.69-1.31)", "0.42"],
+        ["Healthcare Utilization", "2.4 visits/year", "3.6 visits/year", "MD -1.2 (-0.62 to -1.78)", "0.01"]
+      ]
+    }
+  ];
+  
+  const sampleFigures = [
+    {
+      id: "figure_forest_plot",
+      title: "Effect Sizes Across Studies",
+      caption: "Forest plot showing effect sizes and confidence intervals for included studies",
+      type: "chart" as const,
+      data: {
+        type: "forest" as const,
+        studies: [
+          { name: "Smith et al.", effect: 0.65, ci_lower: 0.45, ci_upper: 0.85 },
+          { name: "Johnson et al.", effect: 1.05, ci_lower: 0.85, ci_upper: 1.25 },
+          { name: "Williams et al.", effect: 0.55, ci_lower: 0.35, ci_upper: 0.75 },
+          { name: "Thompson et al.", effect: 0.75, ci_lower: 0.55, ci_upper: 0.95 },
+          { name: "Overall", effect: 0.72, ci_lower: 0.58, ci_upper: 0.86 }
+        ]
+      }
+    },
+    {
+      id: "figure_bar_chart",
+      title: "Outcome Comparison by Treatment Group",
+      caption: "Bar chart comparing key outcomes between treatment and control groups",
+      type: "chart" as const,
+      data: {
+        type: "bar" as const,
+        keys: ["Treatment", "Control"],
+        series: [
+          { name: "Infection Rate (%)", Treatment: 12, Control: 25 },
+          { name: "Hospital Stay (days)", Treatment: 2.4, Control: 4.1 },
+          { name: "Recurrence Rate (%)", Treatment: 8, Control: 15 }
+        ]
+      }
+    },
+    {
+      id: "figure_funnel_plot",
+      title: "Publication Bias Assessment",
+      caption: "Funnel plot for assessment of publication bias",
+      type: "chart" as const,
+      data: {
+        type: "funnel" as const,
+        studies: [
+          { effect: 0.65, se: 0.1 },
+          { effect: 1.05, se: 0.2 },
+          { effect: 0.55, se: 0.15 },
+          { effect: 0.75, se: 0.12 },
+          { effect: 0.85, se: 0.25 },
+          { effect: 0.62, se: 0.18 },
+          { effect: 0.95, se: 0.3 }
+        ]
+      }
+    }
+  ];
+
   return {
     title,
     abstract: {
@@ -140,6 +219,8 @@ Future research should focus on identifying which specific components of interve
       content: discussionContent
     },
     references,
-    word_count: wordCount
+    word_count: wordCount,
+    tables: sampleTables,
+    figures: sampleFigures
   };
 }
