@@ -1,66 +1,28 @@
 import { useState } from 'react';
-import { ResearchForm, ResearchFormData } from '@/components/ResearchForm';
-import { ManuscriptPreview, Manuscript } from '@/components/ManuscriptPreview';
-import { parseResearchIdea, searchArticles, summarizeArticles, generateManuscript, exportManuscript } from '@/lib/api';
-import { Toaster } from '@/components/ui/toaster';
-import { useToast } from '@/hooks/use-toast';
+import { ResearchForm, ResearchFormData } from './components/ResearchForm';
+import { ManuscriptPreview } from './components/ManuscriptPreview';
+import { AIInteraction } from './components/AIInteraction';
+import { exportManuscript } from './lib/api';
+import { Toaster } from './components/ui/toaster';
+import { useToast } from './hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import { useManuscriptGeneration } from './hooks/useManuscriptGeneration';
 
 function App() {
-  const [isLoading, setIsLoading] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
-  const [manuscript, setManuscript] = useState<Manuscript | null>(null);
-  const [currentStep, setCurrentStep] = useState<string | null>(null);
   const { toast } = useToast();
+  
+  const {
+    isLoading,
+    manuscript,
+    currentStep,
+    generateFromResearchIdea,
+    interactWithAI
+  } = useManuscriptGeneration();
 
   const handleSubmit = async (formData: ResearchFormData) => {
     try {
-      setIsLoading(true);
-      setManuscript(null);
-      
-      setCurrentStep('Parsing research idea...');
-      const parsedIdea = await parseResearchIdea(formData);
-      
-      setCurrentStep('Searching for relevant articles...');
-      const articles = await searchArticles(parsedIdea);
-      
-      if (articles.length === 0) {
-        toast({
-          title: 'No articles found',
-          description: 'No relevant articles were found for your research idea. Please try a different query.',
-          variant: 'destructive',
-        });
-        setIsLoading(false);
-        setCurrentStep(null);
-        return;
-      }
-      
-      setCurrentStep('Analyzing and summarizing articles...');
-      const summaries = await summarizeArticles(articles);
-      
-      setCurrentStep('Generating manuscript...');
-      const request = {
-        research_idea: formData.researchIdea,
-        study_type: formData.studyType || undefined,
-        population: formData.population || undefined,
-        date_range: formData.startYear && formData.endYear 
-          ? [parseInt(formData.startYear), parseInt(formData.endYear)] 
-          : undefined,
-        outcomes: formData.outcomes ? formData.outcomes.split(',').map(o => o.trim()) : undefined,
-        target_journal: formData.targetJournal || undefined,
-      };
-      
-      const generatedManuscript = await generateManuscript({
-        request: request,
-        parsed_idea: parsedIdea,
-        article_summaries: summaries
-      });
-      setManuscript(generatedManuscript);
-      
-      toast({
-        title: 'Manuscript generated successfully',
-        description: 'Your research manuscript has been generated and is ready for review.',
-      });
+      await generateFromResearchIdea(formData);
     } catch (error) {
       console.error('Error generating manuscript:', error);
       toast({
@@ -68,9 +30,6 @@ function App() {
         description: error instanceof Error ? error.message : 'An unknown error occurred',
         variant: 'destructive',
       });
-    } finally {
-      setIsLoading(false);
-      setCurrentStep(null);
     }
   };
 
@@ -161,11 +120,37 @@ function App() {
             )}
             
             {!isLoading && (
-              <ManuscriptPreview 
-                manuscript={manuscript} 
-                onDownload={handleDownload}
-                isDownloading={isDownloading}
-              />
+              <>
+                <ManuscriptPreview 
+                  manuscript={manuscript} 
+                  onDownload={handleDownload}
+                  isDownloading={isDownloading}
+                />
+                {manuscript && (
+                  <AIInteraction
+                    manuscript={manuscript}
+                    onManuscriptUpdate={() => {
+                    }}
+                    originalFormData={undefined}
+                    isLoading={isDownloading}
+                    onInteract={async (command) => {
+                      try {
+                        setIsDownloading(true);
+                        await interactWithAI(command);
+                      } catch (error) {
+                        console.error('Error in AI interaction:', error);
+                        toast({
+                          title: 'Error updating manuscript',
+                          description: error instanceof Error ? error.message : 'An unknown error occurred',
+                          variant: 'destructive',
+                        });
+                      } finally {
+                        setIsDownloading(false);
+                      }
+                    }}
+                  />
+                )}
+              </>
             )}
           </div>
         </div>

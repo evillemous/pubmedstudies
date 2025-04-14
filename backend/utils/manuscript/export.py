@@ -10,7 +10,7 @@ import pdfkit
 import markdown
 import weasyprint
 
-from app.models.schemas import Manuscript
+from app.models.schemas import Manuscript, TableData, FigureData
 
 def format_paragraphs(content: str) -> str:
     """
@@ -54,6 +54,69 @@ def format_references(references: List[str]) -> str:
     
     return formatted
 
+def export_tables_to_docx(doc, tables):
+    """
+    Add tables to a Word document.
+    
+    Args:
+        doc: Document object to add tables to
+        tables: List of TableData objects
+        
+    Returns:
+        Document: Updated document with tables
+    """
+    if not tables:
+        return doc
+        
+    doc.add_heading("Tables", level=2)
+    
+    for i, table_data in enumerate(tables):
+        doc.add_heading(f"Table {i+1}: {table_data.title}", level=3)
+        table = doc.add_table(rows=len(table_data.rows)+1, cols=len(table_data.headers))
+        table.style = 'Table Grid'
+        
+        for i, header in enumerate(table_data.headers):
+            table.cell(0, i).text = header
+            
+        for i, row in enumerate(table_data.rows):
+            for j, cell in enumerate(row):
+                table.cell(i+1, j).text = cell
+                
+        caption = doc.add_paragraph(table_data.caption)
+        caption.italic = True
+        
+        doc.add_paragraph("")  # Add space after table
+        
+    return doc
+
+def export_figures_to_docx(doc, figures):
+    """
+    Add figures to a Word document.
+    
+    Args:
+        doc: Document object to add figures to
+        figures: List of FigureData objects
+        
+    Returns:
+        Document: Updated document with figures
+    """
+    if not figures:
+        return doc
+        
+    doc.add_heading("Figures", level=2)
+    
+    for i, figure in enumerate(figures):
+        doc.add_heading(f"Figure {i+1}: {figure.title}", level=3)
+        
+        placeholder = doc.add_paragraph(f"[Figure placeholder: {figure.type} chart - {figure.subtype or 'general'}]")
+        
+        caption = doc.add_paragraph(figure.caption)
+        caption.italic = True
+        
+        doc.add_paragraph("")  # Add space after figure
+        
+    return doc
+
 def export_to_docx(manuscript: Manuscript, output_path: str) -> str:
     """
     Export the manuscript to a Word document.
@@ -92,6 +155,12 @@ def export_to_docx(manuscript: Manuscript, output_path: str) -> str:
     doc.add_heading("References", level=2)
     for ref in manuscript.references:
         doc.add_paragraph(ref)
+    
+    if manuscript.tables:
+        doc = export_tables_to_docx(doc, manuscript.tables)
+        
+    if manuscript.figures:
+        doc = export_figures_to_docx(doc, manuscript.figures)
     
     doc.add_paragraph(f"Word Count: {manuscript.word_count}")
     
@@ -140,6 +209,12 @@ def export_to_pdf(manuscript: Manuscript, output_path: str) -> str:
                 margin-bottom: 12pt;
                 page-break-after: avoid;
             }}
+            h3 {{
+                font-size: 12pt;
+                font-weight: bold;
+                margin-top: 18pt;
+                margin-bottom: 6pt;
+            }}
             p {{
                 margin-bottom: 12pt;
                 text-align: justify;
@@ -162,6 +237,40 @@ def export_to_pdf(manuscript: Manuscript, output_path: str) -> str:
             }}
             .page-break {{
                 page-break-before: always;
+            }}
+            table {{
+                width: 100%;
+                border-collapse: collapse;
+                margin-bottom: 12pt;
+            }}
+            table, th, td {{
+                border: 1px solid black;
+            }}
+            th, td {{
+                padding: 6pt;
+                text-align: left;
+            }}
+            th {{
+                background-color: #f2f2f2;
+            }}
+            .table-caption, .figure-caption {{
+                font-style: italic;
+                text-align: center;
+                margin-bottom: 18pt;
+            }}
+            .figure-placeholder {{
+                width: 100%;
+                height: 300px;
+                background-color: #f2f2f2;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                margin-bottom: 12pt;
+                border: 1px solid #ccc;
+            }}
+            .table-container, .figure-container {{
+                margin-top: 24pt;
+                margin-bottom: 24pt;
             }}
         </style>
     </head>
@@ -197,6 +306,43 @@ def export_to_pdf(manuscript: Manuscript, output_path: str) -> str:
         <div class="references">
             {format_references(manuscript.references)}
         </div>
+        
+        <!-- Add tables if they exist -->
+        {"""
+        <h2>Tables</h2>
+        """ + "".join([f"""
+        <div class="table-container">
+            <h3>Table {i+1}: {table.title}</h3>
+            <table class="manuscript-table">
+                <thead>
+                    <tr>
+                        {"".join([f"<th>{header}</th>" for header in table.headers])}
+                    </tr>
+                </thead>
+                <tbody>
+                    {"".join([f"""
+                    <tr>
+                        {"".join([f"<td>{cell}</td>" for cell in row])}
+                    </tr>
+                    """ for row in table.rows])}
+                </tbody>
+            </table>
+            <p class="table-caption">{table.caption}</p>
+        </div>
+        """ for i, table in enumerate(manuscript.tables)]) if manuscript.tables else ""}
+        
+        <!-- Add figures if they exist -->
+        {"""
+        <h2>Figures</h2>
+        """ + "".join([f"""
+        <div class="figure-container">
+            <h3>Figure {i+1}: {figure.title}</h3>
+            <div class="figure-placeholder">
+                [{figure.type.capitalize()} chart: {figure.subtype or "General"}]
+            </div>
+            <p class="figure-caption">{figure.caption}</p>
+        </div>
+        """ for i, figure in enumerate(manuscript.figures)]) if manuscript.figures else ""}
         
         <div class="word-count">
             Word Count: {manuscript.word_count}
@@ -257,6 +403,28 @@ def manuscript_to_markdown(manuscript: Manuscript) -> str:
     md += "## References\n\n"
     for ref in manuscript.references:
         md += f"{ref}\n\n"
+    
+    if manuscript.tables:
+        md += "## Tables\n\n"
+        for i, table in enumerate(manuscript.tables):
+            md += f"### Table {i+1}: {table.title}\n\n"
+            
+            md += "| " + " | ".join(table.headers) + " |\n"
+            md += "| " + " | ".join(["---"] * len(table.headers)) + " |\n"
+            
+            for row in table.rows:
+                md += "| " + " | ".join(row) + " |\n"
+            
+            md += f"\n*{table.caption}*\n\n"
+    
+    if manuscript.figures:
+        md += "## Figures\n\n"
+        for i, figure in enumerate(manuscript.figures):
+            md += f"### Figure {i+1}: {figure.title}\n\n"
+            
+            md += f"[{figure.type.capitalize()} chart: {figure.subtype or 'General'}]\n\n"
+            
+            md += f"*{figure.caption}*\n\n"
     
     md += f"Word Count: {manuscript.word_count}\n"
     

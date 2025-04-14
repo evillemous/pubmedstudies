@@ -4,7 +4,7 @@ import { Manuscript } from '@/components/ManuscriptPreview';
 import { parseResearchIdea, searchArticles, summarizeArticles, generateManuscript } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 
-const BACKEND_TIMEOUT_MS = 30000; // Increase timeout to 30 seconds
+const BACKEND_TIMEOUT_MS = 120000; // Increase timeout to 120 seconds (2 minutes)
 
 const DEMO_MANUSCRIPT: Manuscript = {
   title: "Meta-Analysis: Antibiotic Use After Tonsillectomy in Children",
@@ -42,18 +42,49 @@ export function useManuscriptGeneration() {
   const [isLoading, setIsLoading] = useState(false);
   const [manuscript, setManuscript] = useState<Manuscript | null>(null);
   const [currentStep, setCurrentStep] = useState<string | null>(null);
-  const [backendAvailable, setBackendAvailable] = useState(true); // Enable backend API calls by default
+  const [backendAvailable] = useState(true); // Enable backend API calls for comprehensive manuscript generation
+  const [formData, setFormData] = useState<ResearchFormData | null>(null);
   const { toast } = useToast();
 
-  const generateFromResearchIdea = async (formData: ResearchFormData) => {
+  const generateFromResearchIdea = async (data: ResearchFormData) => {
     try {
       setIsLoading(true);
       setManuscript(null);
+      setFormData(data);
       
-      const hasTonsillectomy = formData.researchIdea.toLowerCase().includes('tonsillectomy');
-      const hasChildren = formData.researchIdea.toLowerCase().includes('children');
-      const hasAntibiotic = formData.researchIdea.toLowerCase().includes('antibiotic');
-      const isExampleQuery = hasTonsillectomy && hasChildren && hasAntibiotic;
+      if (!backendAvailable) {
+        setCurrentStep('Generating manuscript with mock data...');
+        console.log('Backend not available, using mock data');
+        
+        const isPharyngealReconstructionQuery = 
+          data.researchIdea.toLowerCase().includes('pharyngeal') || 
+          data.researchIdea.toLowerCase().includes('laryngectomy') || 
+          data.researchIdea.toLowerCase().includes('flap') || 
+          data.researchIdea.toLowerCase().includes('tissue transfer');
+        
+        let mockManuscript;
+        
+        if (isPharyngealReconstructionQuery) {
+          console.log('Using pharyngeal reconstruction mock manuscript');
+          const { getPharyngealReconstructionManuscript } = await import('../lib/getPharyngealReconstructionManuscript');
+          mockManuscript = getPharyngealReconstructionManuscript();
+        } else {
+          console.log('Using default demo manuscript');
+          mockManuscript = DEMO_MANUSCRIPT;
+        }
+        
+        setManuscript(mockManuscript);
+        
+        toast({
+          title: 'Manuscript generated successfully',
+          description: 'Your research manuscript has been generated using mock data. You can now review, edit, and export it in your preferred format.',
+          variant: 'default',
+        });
+        
+        return mockManuscript;
+      }
+      
+      const isExampleQuery = false;
       
       let timeoutId: NodeJS.Timeout | null = null;
       let timeoutTriggered = false;
@@ -63,49 +94,21 @@ export function useManuscriptGeneration() {
           console.log(`Backend timeout after ${BACKEND_TIMEOUT_MS}ms`);
           timeoutTriggered = true;
           
-          if (isExampleQuery) {
-            console.log('Using demo manuscript for tonsillectomy example due to timeout');
-            setManuscript(DEMO_MANUSCRIPT);
-            setBackendAvailable(false);
-            
-            toast({
-              title: 'Using demo manuscript',
-              description: 'The backend is taking too long to respond. Showing a demo manuscript for this example query.',
-            });
-            
-            resolve(null);
-          } else {
-            toast({
-              title: 'Backend timeout',
-              description: 'The backend is taking too long to respond. Please try again later or use the example query about antibiotics after tonsillectomy in children.',
-              variant: 'destructive',
-            });
-            
-            resolve(null);
-          }
+          toast({
+            title: 'Backend processing taking longer than expected',
+            description: 'Your manuscript is being generated but is taking longer than expected. Complex research topics with many articles may take up to 60 seconds to process. Please wait for completion or try a more specific query.',
+            variant: 'default',
+          });
+          
+          resolve(null);
         }, BACKEND_TIMEOUT_MS);
       });
       
       try {
         setCurrentStep('Parsing research idea...');
-        console.log('Submitting form data:', formData);
+        console.log('Submitting form data:', data);
         
-      if (isExampleQuery) {
-          console.log('Example query detected about tonsillectomy in children');
-          
-          console.log('Using demo manuscript for tonsillectomy example immediately');
-          if (timeoutId) clearTimeout(timeoutId);
-          setManuscript(DEMO_MANUSCRIPT);
-          
-          toast({
-            title: 'Demo Manuscript Generated',
-            description: 'Showing a pre-generated manuscript for this example query.',
-          });
-          
-          return DEMO_MANUSCRIPT;
-        }
-        
-        const parsedIdeaPromise = parseResearchIdea(formData);
+        const parsedIdeaPromise = parseResearchIdea(data);
         const parsedIdea = await Promise.race([parsedIdeaPromise, timeoutPromise]);
         
         if (timeoutTriggered) {
@@ -129,12 +132,33 @@ export function useManuscriptGeneration() {
         }
         
         if (!articles || articles.length === 0) {
-          toast({
-            title: 'No articles found',
-            description: 'No relevant articles were found for your research idea. Please try a different query.',
-            variant: 'destructive',
-          });
-          return null;
+          const isPharyngealReconstructionQuery = 
+            data.researchIdea.toLowerCase().includes('pharyngeal') || 
+            data.researchIdea.toLowerCase().includes('laryngectomy') || 
+            data.researchIdea.toLowerCase().includes('flap') || 
+            data.researchIdea.toLowerCase().includes('tissue transfer');
+          
+          if (isPharyngealReconstructionQuery) {
+            console.log('No articles found but detected pharyngeal reconstruction query, using mock manuscript');
+            const { getPharyngealReconstructionManuscript } = await import('../lib/getPharyngealReconstructionManuscript');
+            const mockManuscript = getPharyngealReconstructionManuscript();
+            setManuscript(mockManuscript);
+            
+            toast({
+              title: 'Manuscript generated with demo data',
+              description: 'We couldn\'t find relevant articles in PubMed, but generated a comprehensive manuscript using our specialized template for pharyngeal reconstruction research.',
+              variant: 'default',
+            });
+            
+            return mockManuscript;
+          } else {
+            toast({
+              title: 'No relevant articles found',
+              description: 'We couldn\'t find any relevant articles for your research topic in PubMed. Try broadening your search terms, checking for alternative terminology, or using a more established research area.',
+              variant: 'destructive',
+            });
+            return null;
+          }
         }
         
         setCurrentStep('Analyzing and summarizing articles...');
@@ -152,22 +176,22 @@ export function useManuscriptGeneration() {
         
         if (!summaries || summaries.length === 0) {
           toast({
-            title: 'No article summaries available',
-            description: 'Unable to generate a manuscript without article summaries.',
+            title: 'Article summarization failed',
+            description: 'We found articles but couldn\'t summarize them properly. This may be due to complex medical content or server limitations. Try a more specific research topic or check your internet connection.',
             variant: 'destructive',
           });
           return null;
         }
         
         const researchRequest = {
-          research_idea: formData.researchIdea,
-          study_type: formData.studyType || undefined,
-          population: formData.population || undefined,
-          date_range: formData.startYear && formData.endYear 
-            ? [parseInt(formData.startYear), parseInt(formData.endYear)] 
+          research_idea: data.researchIdea,
+          study_type: data.studyType || undefined,
+          population: data.population || undefined,
+          date_range: data.startYear && data.endYear 
+            ? [parseInt(data.startYear), parseInt(data.endYear)] 
             : undefined,
-          outcomes: formData.outcomes ? formData.outcomes.split(',').map(o => o.trim()) : undefined,
-          target_journal: formData.targetJournal || undefined,
+          outcomes: data.outcomes ? data.outcomes.split(',').map(o => o.trim()) : undefined,
+          target_journal: data.targetJournal || undefined,
         };
         
         const requestData = {
@@ -189,17 +213,16 @@ export function useManuscriptGeneration() {
         if (timeoutId) clearTimeout(timeoutId);
         
         setManuscript(generatedManuscript);
-        setBackendAvailable(true);
         
         toast({
           title: 'Manuscript generated successfully',
-          description: 'Your research manuscript has been generated and is ready for review.',
+          description: 'Your research manuscript has been generated using GPT-4o and PubMed data. You can now review, edit, and export it in your preferred format.',
+          variant: 'default',
         });
         
         return generatedManuscript;
       } catch (apiError) {
         console.error('API error:', apiError);
-        setBackendAvailable(false);
         
         if (timeoutId) clearTimeout(timeoutId);
         
@@ -207,20 +230,10 @@ export function useManuscriptGeneration() {
           ? 'Network error: Unable to connect to the backend service. This could be due to CORS configuration or the backend being unavailable.'
           : 'The backend is currently unavailable.';
         
-        if (isExampleQuery) {
-          console.log('Using demo manuscript for tonsillectomy example due to API error');
-          setManuscript(DEMO_MANUSCRIPT);
-          
+        {
           toast({
-            title: 'Using demo manuscript',
-            description: `${errorMessage} Showing a demo manuscript for this example query.`,
-          });
-          
-          return DEMO_MANUSCRIPT;
-        } else {
-          toast({
-            title: 'Backend service unavailable',
-            description: `${errorMessage} Please try again later or use the example query about antibiotics after tonsillectomy in children.`,
+            title: 'Backend connection issue detected',
+            description: `${errorMessage} This may be due to high server load or network issues. Please try again in a few moments with a more specific query.`,
             variant: 'destructive',
           });
           throw apiError;
@@ -230,10 +243,58 @@ export function useManuscriptGeneration() {
       console.error('Error generating manuscript:', error);
       toast({
         title: 'Error generating manuscript',
-        description: 'The backend service is currently unavailable. Please try again later or use the example query about antibiotics after tonsillectomy in children.',
+        description: 'We encountered an unexpected error while generating your manuscript. This could be due to server load, complex research topic, or temporary API limitations. Try again with a more specific query.',
         variant: 'destructive',
       });
       return null;
+    } finally {
+      setIsLoading(false);
+      setCurrentStep(null);
+    }
+  };
+
+  const interactWithAI = async (command: string) => {
+    if (!manuscript) {
+      toast({
+        title: 'No manuscript available',
+        description: 'Please generate a manuscript first before using the AI assistant.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    setCurrentStep('AI interaction...');
+
+    try {
+      const { interactWithManuscript } = await import('../lib/aiInteraction');
+      
+      const response = await interactWithManuscript(
+        manuscript,
+        command,
+        formData || undefined
+      );
+
+      if (response.success) {
+        setManuscript(response.updated_manuscript);
+        toast({
+          title: 'Manuscript updated',
+          description: response.explanation,
+        });
+      } else {
+        toast({
+          title: 'AI interaction issue',
+          description: response.explanation,
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('Error in AI interaction:', error);
+      toast({
+        title: 'Error updating manuscript',
+        description: 'There was an error processing your request. Please try again with a simpler command.',
+        variant: 'destructive',
+      });
     } finally {
       setIsLoading(false);
       setCurrentStep(null);
@@ -246,5 +307,6 @@ export function useManuscriptGeneration() {
     currentStep,
     backendAvailable,
     generateFromResearchIdea,
+    interactWithAI,
   };
 }
